@@ -112,7 +112,7 @@ export const getKeys = async (createdBy, language, personal) => {
     };
     const keys = await Key.findAll({
         attributes: { exclude: ['created_by', 'createdBy'] },
-        order: [['id', 'ASC']],
+        order: [['created_at', 'DESC']],
         include: [
             {
                 model: KeyInfo,

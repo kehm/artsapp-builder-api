@@ -54,7 +54,7 @@ router.get('/key/:keyId', [
                 attributes: {
                     exclude: ['created_by'],
                 },
-                order: [['id', 'ASC']],
+                order: [['created_at', 'DESC']],
                 where: {
                     id: {
                         [Sequelize.Op.in]: keyRevisions.map(
