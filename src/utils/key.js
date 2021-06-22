@@ -240,6 +240,7 @@ export const handleUpdateKey = async (keyId, body) => {
             keyGroupId: body.groupId ? body.groupId : null,
             workgroupId: body.workgroupId ? body.workgroupId : null,
             revisionId: body.revisionId,
+            licenseUrl: body.licenseUrl ? body.licenseUrl : null,
         }, {
             where: { id: keyId },
         });

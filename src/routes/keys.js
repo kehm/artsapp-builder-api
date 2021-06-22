@@ -153,6 +153,7 @@ router.put('/:keyId', [
     body('groupId').isInt().optional(),
     body('collections').isArray().optional(),
     body('workgroupId').isInt().optional(),
+    body('licenseUrl').isURL().optional(),
     body('revisionId').isUUID(4),
     body('languages').isArray(),
     body('creators').isArray(),
