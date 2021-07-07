@@ -116,6 +116,7 @@ router.put('/:revisionId', [
 router.post('/', [
     body('keyId').isUUID(4),
     body('content').isJSON().optional(),
+    body('media').isJSON().optional(),
     body('note').isString().optional(),
 ], isValidInput, isPermittedKey('EDIT_KEY'), async (req, res) => {
     try {
@@ -124,7 +125,7 @@ router.post('/', [
             const revisionId = await createRevision(
                 key,
                 req.body.content ? JSON.parse(req.body.content) : {},
-                {},
+                req.body.media ? JSON.parse(req.body.media) : {},
                 req.user,
                 req.body.note,
             );

@@ -6,7 +6,7 @@
   "scripts": {
     "start": "npm run build && node build/app.bundle.js",
     "build": "webpack --mode=production",
-    "dev": "nodemon build/app.bundle.js"
+    "dev": "webpack --mode=development --watch & nodemon build/app.bundle.js"
   },
   "repository": {
     "type": "git",
