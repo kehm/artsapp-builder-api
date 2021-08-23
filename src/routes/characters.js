@@ -112,7 +112,7 @@ router.put('/:characterId', [
 ], isValidInput, isPermittedKey('EDIT_KEY'), async (req, res) => {
     try {
         if ((req.body.type === 'NUMERICAL' && (req.body.unitNo || req.body.unitEn))
-            || ((req.body.type === 'EXCLUSIVE' || req.body.type === 'MULTISTATE') && req.body.alternatives && req.body.alternatives.length > 1)) {
+            || (req.body.alternatives && req.body.alternatives.length > 1)) {
             const key = await Key.findByPk(req.body.keyId);
             if (key) {
                 let states;
@@ -127,9 +127,7 @@ router.put('/:characterId', [
                             (element) => element.id === req.params.characterId,
                         );
                         char = setCharacterInfo(char, req.body);
-                        if (char.type.toUpperCase() === 'EXCLUSIVE' || char.type.toUpperCase() === 'MULTISTATE') {
-                            states = await createMultiStates(char, req.body.alternatives);
-                        } else {
+                        if (char.type.toUpperCase() === 'NUMERICAL') {
                             const unit = {};
                             if (req.body.unitNo) unit.no = req.body.unitNo;
                             if (req.body.unitEn) unit.en = req.body.unitEn;
@@ -147,7 +145,7 @@ router.put('/:characterId', [
                                 char.states,
                                 revision.content.characters,
                             );
-                        }
+                        } else states = await createMultiStates(char, req.body.alternatives);
                         if (states) {
                             if (Array.isArray(states)) {
                                 if (revision.content.statements
@@ -183,9 +181,7 @@ router.put('/:characterId', [
                     } else res.sendStatus(404);
                 } else res.sendStatus(404);
             } else res.sendStatus(404);
-        } else if (req.body.type === 'NUMERICAL') {
-            res.status(400).json({ error: 'Missing unit name' });
-        } else res.status(400).json({ error: 'Missing alternatives' });
+        } else res.status(400).json({ error: 'Missing input' });
     } catch (err) {
         logError('Could not update character', err);
         res.sendStatus(500);
@@ -204,10 +200,7 @@ router.post('/', [
     ]),
     body('descriptionNo').isString().optional(),
     body('descriptionEn').isString().optional(),
-    body('type').custom((value) => {
-        if (!['EXCLUSIVE', 'MULTISTATE', 'NUMERICAL'].some((element) => element === value)) throw new Error('Invalid value');
-        return true;
-    }),
+    body('type').isString().optional(),
     oneOf([
         body('alternatives').isArray(),
         [
@@ -221,21 +214,15 @@ router.post('/', [
 ], isValidInput, isPermittedKey('EDIT_KEY'), async (req, res) => {
     try {
         if ((req.body.type === 'NUMERICAL' && (req.body.unitNo || req.body.unitEn))
-            || ((req.body.type === 'EXCLUSIVE' || req.body.type === 'MULTISTATE')
-                && req.body.alternatives && req.body.alternatives.length > 1)) {
+            || (req.body.alternatives && req.body.alternatives.length > 1)) {
             const key = await Key.findByPk(req.body.keyId);
             if (key) {
                 let states;
                 const character = await Character.create({
-                    type: req.body.type,
+                    type: req.body.type === 'NUMERICAL' ? 'NUMERICAL' : 'MULTISTATE',
                     keyId: req.body.keyId,
                 });
-                if (character.type === 'EXCLUSIVE' || character.type === 'MULTISTATE') {
-                    states = await createMultiStates(
-                        character,
-                        req.body.alternatives,
-                    );
-                } else {
+                if (character.type === 'NUMERICAL') {
                     const unit = {};
                     if (req.body.unitNo) unit.no = req.body.unitNo;
                     if (req.body.unitEn) unit.en = req.body.unitEn;
@@ -245,6 +232,11 @@ router.post('/', [
                         req.body.min,
                         req.body.max,
                         req.body.stepSize,
+                    );
+                } else {
+                    states = await createMultiStates(
+                        character,
+                        req.body.alternatives,
                     );
                 }
                 const revision = await findRevisionForKey(
@@ -258,7 +250,7 @@ router.post('/', [
                     id: `${character.id}`,
                     title: info.title,
                     description: info.description,
-                    type: req.body.type.toLowerCase(),
+                    // type: req.body.type.toLowerCase(),
                     states: Array.isArray(states)
                         ? states.map((state) => ({ id: `${state.id}`, title: state.title, description: state.description }))
                         : states,
@@ -272,9 +264,7 @@ router.post('/', [
                 );
                 res.status(200).json({ revisionId, characterId: `${character.id}` });
             } else res.sendStatus(404);
-        } else if (req.body.type === 'NUMERICAL') {
-            res.status(400).json({ error: 'Missing unit name' });
-        } else res.status(400).json({ error: 'Missing alternatives' });
+        } else res.status(400).json({ error: 'Missing input' });
     } catch (err) {
         logError('Could not create new character', err);
         res.sendStatus(500);
