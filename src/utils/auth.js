@@ -52,18 +52,12 @@ const getUserOrganizationId = async (accessToken) => {
 };
 
 /**
- * Update existing user object (in case the user's IDP record has changed)
+ * Update name, email, and tokens/scope for existing user object
  *
  * @param {Object} user Existing user object
  * @param {Object} newUser New user object
  */
 const updateExistingUser = async (user, newUser) => {
-    let roleId;
-    if (newUser.organizationId) {
-        if (newUser.organizationId === user.organizationId) {
-            roleId = user.roleId;
-        } else roleId = 3;
-    }
     await User.update({
         name: newUser.name,
         email: newUser.email,
@@ -71,8 +65,6 @@ const updateExistingUser = async (user, newUser) => {
         expiresAt: newUser.expiresAt,
         scope: newUser.scope,
         idToken: newUser.idToken,
-        organizationId: newUser.organizationId,
-        roleId,
     }, {
         where: { idpId: user.idpId },
     });
