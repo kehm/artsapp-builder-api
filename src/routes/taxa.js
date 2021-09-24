@@ -84,23 +84,28 @@ router.put('/:taxonId', [
                 const revision = await findRevisionForKey(req.body.revisionId, req.body.keyId);
                 const { content } = revision;
                 if (content.taxa) {
-                    const tmp = findTaxonById(content.taxa, `${taxon.id}`, true);
-                    if (tmp) {
+                    const tmpTaxon = findTaxonById(content.taxa, `${taxon.id}`, true);
+                    if (tmpTaxon) {
                         const valid = modifyTaxonNames(
-                            tmp,
+                            tmpTaxon,
                             `${taxon.id}`,
                             content.taxa,
                             req.body,
                         );
                         if (req.body.parentId !== undefined) {
+                            if (req.body.parentId !== tmpTaxon.parentId) {
+                                content.statements = content.statements.filter(
+                                    (element) => element.taxonId !== tmpTaxon.id,
+                                );
+                            }
                             updateParentTaxon(
-                                tmp,
+                                tmpTaxon,
                                 parseInt(req.body.parentId, 10),
                                 content.taxa,
                                 taxon.id,
                             );
                         }
-                        delete tmp.parentId;
+                        delete tmpTaxon.parentId;
                         if (valid) {
                             const revisionId = await createRevision(
                                 key,

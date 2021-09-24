@@ -80,7 +80,7 @@ export const findTaxonByName = (arr, name, ignoreId) => {
  * @param {int} parentId Parent taxon ID
  */
 export const addToParent = (taxa, taxon, parentId) => {
-    const parent = findTaxonById(taxa, parentId);
+    const parent = findTaxonById(taxa, `${parentId}`);
     if (parent) {
         if (!parent.children) parent.children = [];
         parent.children.push(taxon);
@@ -129,20 +129,20 @@ export const modifyTaxonNames = (taxon, taxonId, taxa, body) => {
 /**
  * Update parent taxon
  *
- * @param {Object} tmp Taxon that is being updated
+ * @param {Object} tmpTaxon Taxon that is being updated
  * @param {int} parentId Parent ID of the taxon being updated
  * @param {Array} taxa Taxa in revision
  * @param {int} taxonId Taxon ID (from database)
  */
-export const updateParentTaxon = (tmp, parentId, taxa, taxonId) => {
-    if (tmp.parentId) {
-        const parentTaxon = findTaxonById(taxa, tmp.parentId);
+export const updateParentTaxon = (tmpTaxon, parentId, taxa, taxonId) => {
+    if (tmpTaxon.parentId) {
+        const parentTaxon = findTaxonById(taxa, tmpTaxon.parentId);
         parentTaxon.children.splice(parentTaxon.children.findIndex((element) => element.id === `${taxonId}`), 1);
         if (parentId === 0) {
-            taxa.push(tmp);
-        } else addToParent(taxa, tmp, parentId);
+            taxa.push(tmpTaxon);
+        } else addToParent(taxa, tmpTaxon, parentId);
     } else if (parentId !== 0) {
         taxa.splice(taxa.findIndex((element) => element.id === `${taxonId}`), 1);
-        addToParent(taxa, tmp, parentId);
+        addToParent(taxa, tmpTaxon, parentId);
     }
 };

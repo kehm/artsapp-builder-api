@@ -99,6 +99,7 @@ router.put('/:characterId', [
     ]),
     body('descriptionNo').isString().optional(),
     body('descriptionEn').isString().optional(),
+    body('type').isString(),
     oneOf([
         body('alternatives').isArray(),
         [
@@ -127,7 +128,7 @@ router.put('/:characterId', [
                             (element) => element.id === req.params.characterId,
                         );
                         char = setCharacterInfo(char, req.body);
-                        if (char.type.toUpperCase() === 'NUMERICAL') {
+                        if (!Array.isArray(char.states)) {
                             const unit = {};
                             if (req.body.unitNo) unit.no = req.body.unitNo;
                             if (req.body.unitEn) unit.en = req.body.unitEn;
@@ -200,7 +201,7 @@ router.post('/', [
     ]),
     body('descriptionNo').isString().optional(),
     body('descriptionEn').isString().optional(),
-    body('type').isString().optional(),
+    body('type').isString(),
     oneOf([
         body('alternatives').isArray(),
         [
@@ -218,8 +219,9 @@ router.post('/', [
             const key = await Key.findByPk(req.body.keyId);
             if (key) {
                 let states;
+                const type = req.body.type === 'NUMERICAL' ? 'NUMERICAL' : 'MULTISTATE';
                 const character = await Character.create({
-                    type: req.body.type === 'NUMERICAL' ? 'NUMERICAL' : 'MULTISTATE',
+                    type,
                     keyId: req.body.keyId,
                 });
                 if (character.type === 'NUMERICAL') {
@@ -250,7 +252,7 @@ router.post('/', [
                     id: `${character.id}`,
                     title: info.title,
                     description: info.description,
-                    // type: req.body.type.toLowerCase(),
+                    type: type.toLowerCase(),
                     states: Array.isArray(states)
                         ? states.map((state) => ({ id: `${state.id}`, title: state.title, description: state.description }))
                         : states,
