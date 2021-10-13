@@ -1,3 +1,4 @@
+import Key from '../lib/database/models/Key.js';
 import Revision from '../lib/database/models/Revision.js';
 import Revisions from '../lib/database/models/Revisions.js';
 
@@ -9,15 +10,17 @@ import Revisions from '../lib/database/models/Revisions.js';
  * @param {Object} media Media elements object
  * @param {string} createdBy Created by string
  * @param {string} note Optional revision note
+ * @param {int} mode Key mode (set default if undefined)
  * @returns {string} Revision ID
  */
-export const createRevision = async (key, content, media, createdBy, note) => {
+export const createRevision = async (key, content, media, createdBy, note, mode) => {
     const revision = await Revision.create({
         content,
         media,
         note,
         createdBy,
         status: 'DRAFT',
+        mode: mode || parseInt(process.env.DEFAULT_KEY_MODE, 10),
     });
     const keyRevision = await Revisions.create({
         keyId: key.id,
@@ -31,11 +34,11 @@ export const createRevision = async (key, content, media, createdBy, note) => {
 };
 
 /**
- * Find revision and check if it belongs to the specified key
+ * Find revision and key (checks if revision belongs to the specified key)
  *
  * @param {string} revisionId Revision ID
  * @param {string} keyId Key ID
- * @returns {Object} Revision
+ * @returns {Object} Revision and key
  */
 export const findRevisionForKey = async (revisionId, keyId) => {
     const keyRevision = await Revisions.findOne({
@@ -43,7 +46,8 @@ export const findRevisionForKey = async (revisionId, keyId) => {
     });
     if (keyRevision) {
         const revision = await Revision.findByPk(revisionId);
-        if (revision) return revision;
+        const key = await Key.findByPk(keyId);
+        if (revision) return { revision, key };
     }
     throw new Error();
 };

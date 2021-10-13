@@ -1,7 +1,6 @@
 import express from 'express';
 import { body, param, query } from 'express-validator';
 import axios from 'axios';
-import Key from '../lib/database/models/Key.js';
 import Taxon from '../lib/database/models/Taxon.js';
 import { logError } from '../utils/logger.js';
 import { createRevision, findRevisionForKey } from '../utils/revision.js';
@@ -77,11 +76,10 @@ router.put('/:taxonId', [
     body('parentId').isInt().optional(),
 ], isValidInput, isPermittedKey('EDIT_KEY'), async (req, res) => {
     try {
-        const key = await Key.findByPk(req.body.keyId);
-        if (key) {
+        const { revision, key } = await findRevisionForKey(req.body.revisionId, req.body.keyId);
+        if (key && revision) {
             const taxon = await Taxon.findByPk(req.params.taxonId);
             if (taxon) {
-                const revision = await findRevisionForKey(req.body.revisionId, req.body.keyId);
                 const { content } = revision;
                 if (content.taxa) {
                     const tmpTaxon = findTaxonById(content.taxa, `${taxon.id}`, true);
@@ -93,7 +91,7 @@ router.put('/:taxonId', [
                             req.body,
                         );
                         if (req.body.parentId !== undefined) {
-                            if (req.body.parentId !== tmpTaxon.parentId) {
+                            if (req.body.parentId !== tmpTaxon.parentId && content.statements) {
                                 content.statements = content.statements.filter(
                                     (element) => element.taxonId !== tmpTaxon.id,
                                 );
@@ -113,6 +111,7 @@ router.put('/:taxonId', [
                                 revision.media,
                                 req.user,
                                 `Updated taxon: ${req.body.scientificName}`,
+                                revision.mode,
                             );
                             res.status(200).json(revisionId);
                         } else res.sendStatus(409);
@@ -140,9 +139,8 @@ router.post('/', [
     body('parentId').isInt().optional(),
 ], isValidInput, isPermittedKey('EDIT_KEY'), async (req, res) => {
     try {
-        const key = await Key.findByPk(req.body.keyId);
-        if (key) {
-            const revision = await findRevisionForKey(req.body.revisionId, req.body.keyId);
+        const { revision, key } = await findRevisionForKey(req.body.revisionId, req.body.keyId);
+        if (key && revision) {
             const { content } = revision;
             if (!content.taxa) content.taxa = [];
             if (!findTaxonByName(content.taxa, req.body.scientificName)) {
@@ -163,6 +161,7 @@ router.post('/', [
                     revision.media,
                     req.user,
                     `Created new taxon: ${req.body.scientificName}`,
+                    revision.mode,
                 );
                 res.status(200).json({ revisionId, taxonId: `${taxon.id}` });
             } else res.sendStatus(409);

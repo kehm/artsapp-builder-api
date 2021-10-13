@@ -7,7 +7,7 @@ import Revisions from '../lib/database/models/Revisions.js';
 import { isAuthenticated, isPermitted, isPermittedKey } from '../middleware/auth.js';
 import isValidInput from '../middleware/input.js';
 import { logError } from '../utils/logger.js';
-import { createRevision } from '../utils/revision.js';
+import { createRevision, findRevisionForKey } from '../utils/revision.js';
 
 /**
  * Routes for the key builder
@@ -79,7 +79,7 @@ router.get('/key/:keyId', [
 /**
  * Update revision status
  */
-router.put('/:revisionId', [
+router.put('/status/:revisionId', [
     param('revisionId').isUUID(4),
     body('keyId').isUUID(4),
     body('status').custom((value) => {
@@ -88,13 +88,7 @@ router.put('/:revisionId', [
     }),
 ], isValidInput, isPermittedKey('PUBLISH_KEY'), async (req, res) => {
     try {
-        const revision = await Revisions.findOne({
-            where: {
-                keyId: req.body.keyId,
-                revisionId: req.params.revisionId,
-            },
-        });
-        const key = await Key.findByPk(req.body.keyId);
+        const { revision, key } = await findRevisionForKey(req.params.revisionId, req.body.keyId);
         if (revision && key && key.revisionId !== req.params.revisionId) {
             await Revision.update(
                 { status: req.body.status },
@@ -111,6 +105,33 @@ router.put('/:revisionId', [
 });
 
 /**
+ * Change key mode
+ */
+router.put('/mode/:revisionId', [
+    param('revisionId').isUUID(4),
+    body('keyId').isUUID(4),
+    body('mode').isInt({ min: 1, max: 2 }),
+], isValidInput, isPermittedKey('EDIT_KEY'), async (req, res) => {
+    try {
+        const { revision, key } = await findRevisionForKey(req.params.revisionId, req.body.keyId);
+        if (key && revision) {
+            const revisionId = await createRevision(
+                key,
+                revision.content,
+                revision.media,
+                req.user,
+                `Changed key mode to ${req.body.mode === 1 ? 'simple' : 'advanced'}`,
+                req.body.mode,
+            );
+            res.status(200).json(revisionId);
+        } else res.sendStatus(403);
+    } catch (err) {
+        logError('Could not change key mode', err);
+        res.sendStatus(500);
+    }
+});
+
+/**
  * Create new revision (if key does not already have a revision, set this revision as default)
  */
 router.post('/', [
@@ -118,6 +139,7 @@ router.post('/', [
     body('content').isJSON().optional(),
     body('media').isJSON().optional(),
     body('note').isString().optional(),
+    body('mode').isInt({ min: 1, max: 2 }).optional(),
 ], isValidInput, isPermittedKey('EDIT_KEY'), async (req, res) => {
     try {
         const key = await Key.findByPk(req.body.keyId);
@@ -128,6 +150,7 @@ router.post('/', [
                 req.body.media ? JSON.parse(req.body.media) : {},
                 req.user,
                 req.body.note,
+                req.body.mode,
             );
             res.status(200).json(revisionId);
         } else res.sendStatus(400);

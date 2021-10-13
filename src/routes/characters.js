@@ -2,7 +2,6 @@ import express from 'express';
 import { body, oneOf, param } from 'express-validator';
 import Character from '../lib/database/models/Character.js';
 import CharacterState from '../lib/database/models/CharacterState.js';
-import Key from '../lib/database/models/Key.js';
 import Revision from '../lib/database/models/Revision.js';
 import { isAuthenticated, isPermittedKey } from '../middleware/auth.js';
 import isValidInput from '../middleware/input.js';
@@ -29,11 +28,10 @@ router.put('/premise/:characterId', [
     body('logicalPremise').isArray(),
 ], isValidInput, isPermittedKey('EDIT_KEY'), async (req, res) => {
     try {
-        const key = await Key.findByPk(req.body.keyId);
-        if (key) {
+        const { revision, key } = await findRevisionForKey(req.body.revisionId, req.body.keyId);
+        if (key && revision) {
             const character = await Character.findByPk(req.params.characterId);
             if (character) {
-                const revision = await findRevisionForKey(req.body.revisionId, req.body.keyId);
                 if (revision.content.characters) {
                     const char = revision.content.characters.find(
                         (element) => element.id === req.params.characterId,
@@ -45,6 +43,7 @@ router.put('/premise/:characterId', [
                         revision.media,
                         req.user,
                         `Updated character premise: ${char.title.en || char.title.no}`,
+                        revision.mode,
                     );
                     res.status(200).json(revisionId);
                 } else res.sendStatus(404);
@@ -65,20 +64,17 @@ router.put('/states/revision/:revisionId', [
     body('states').isArray(),
 ], isValidInput, isPermittedKey('EDIT_KEY'), async (req, res) => {
     try {
-        const key = await Key.findByPk(req.body.keyId);
-        if (key) {
-            const revision = await Revision.findByPk(req.params.revisionId);
-            if (revision && revision.content.characters) {
-                const { content } = revision;
-                req.body.states.forEach((state) => {
-                    content.characters = removeStatePremises(state, content.characters);
-                });
-                await Revision.update(
-                    { content },
-                    { where: { id: req.params.revisionId } },
-                );
-                res.sendStatus(200);
-            } else res.sendStatus(404);
+        const { revision, key } = await findRevisionForKey(req.params.revisionId, req.body.keyId);
+        if (key && revision && revision.content.characters) {
+            const { content } = revision;
+            req.body.states.forEach((state) => {
+                content.characters = removeStatePremises(state, content.characters);
+            });
+            await Revision.update(
+                { content },
+                { where: { id: req.params.revisionId } },
+            );
+            res.sendStatus(200);
         } else res.sendStatus(404);
     } catch (err) {
         logError('Could not update character premise', err);
@@ -90,8 +86,8 @@ router.put('/states/revision/:revisionId', [
  * Update character
  */
 router.put('/:characterId', [
-    body('keyId').isUUID(4),
     param('characterId').isString(),
+    body('keyId').isUUID(4),
     body('revisionId').isUUID(4),
     oneOf([
         body('titleNo').isString().isLength({ min: 1 }),
@@ -114,15 +110,14 @@ router.put('/:characterId', [
     try {
         if ((req.body.type === 'NUMERICAL' && (req.body.unitNo || req.body.unitEn))
             || (req.body.alternatives && req.body.alternatives.length > 1)) {
-            const key = await Key.findByPk(req.body.keyId);
-            if (key) {
+            const { revision, key } = await findRevisionForKey(
+                req.body.revisionId,
+                req.body.keyId,
+            );
+            if (key && revision) {
                 let states;
                 const character = await Character.findByPk(req.params.characterId);
                 if (character) {
-                    const revision = await findRevisionForKey(
-                        req.body.revisionId,
-                        req.body.keyId,
-                    );
                     if (revision.content.characters) {
                         let char = revision.content.characters.find(
                             (element) => element.id === req.params.characterId,
@@ -177,6 +172,7 @@ router.put('/:characterId', [
                             revision.media,
                             req.user,
                             `Updated character: ${req.body.titleEn || req.body.titleNo}`,
+                            revision.mode,
                         );
                         res.status(200).json(revisionId);
                     } else res.sendStatus(404);
@@ -216,8 +212,11 @@ router.post('/', [
     try {
         if ((req.body.type === 'NUMERICAL' && (req.body.unitNo || req.body.unitEn))
             || (req.body.alternatives && req.body.alternatives.length > 1)) {
-            const key = await Key.findByPk(req.body.keyId);
-            if (key) {
+            const { revision, key } = await findRevisionForKey(
+                req.body.revisionId,
+                req.body.keyId,
+            );
+            if (key && revision) {
                 let states;
                 const type = req.body.type === 'NUMERICAL' ? 'NUMERICAL' : 'MULTISTATE';
                 const character = await Character.create({
@@ -241,10 +240,6 @@ router.post('/', [
                         req.body.alternatives,
                     );
                 }
-                const revision = await findRevisionForKey(
-                    req.body.revisionId,
-                    req.body.keyId,
-                );
                 if (!revision.content.characters) revision.content.characters = [];
                 let info = {};
                 info = setCharacterInfo(info, req.body);
@@ -263,6 +258,7 @@ router.post('/', [
                     revision.media,
                     req.user,
                     `Created new character: ${req.body.titleEn ? req.body.titleEn : req.body.titleNo}`,
+                    revision.mode,
                 );
                 res.status(200).json({ revisionId, characterId: `${character.id}` });
             } else res.sendStatus(404);

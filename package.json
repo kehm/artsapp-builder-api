@@ -15,7 +15,7 @@
   "author": "kehm",
   "dependencies": {
     "ajv": "^7.0.4",
-    "axios": "^0.21.1",
+    "axios": "^0.22.0",
     "connect-session-sequelize": "^7.0.4",
     "core-js": "^3.12.0",
     "cors": "^2.8.5",
