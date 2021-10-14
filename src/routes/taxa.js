@@ -5,7 +5,7 @@ import Taxon from '../lib/database/models/Taxon.js';
 import { logError } from '../utils/logger.js';
 import { createRevision, findRevisionForKey } from '../utils/revision.js';
 import {
-    findTaxonById, addToParent, findTaxonByName, modifyTaxonNames, updateParentTaxon, setTaxonInfo,
+    findTaxonById, addToParent, findTaxonByName, modifyTaxonNames, updateParentTaxon, setTaxonInfo, findParentTaxa,
 } from '../utils/taxon.js';
 import { isAuthenticated, isPermitted, isPermittedKey } from '../middleware/auth.js';
 import isValidInput from '../middleware/input.js';
@@ -82,7 +82,9 @@ router.put('/:taxonId', [
             if (taxon) {
                 const { content } = revision;
                 if (content.taxa) {
-                    const tmpTaxon = findTaxonById(content.taxa, `${taxon.id}`, true);
+                    const tmpTaxon = findTaxonById(content.taxa, `${taxon.id}`);
+                    const parents = findParentTaxa(content.taxa, `${taxon.id}`);
+                    if (parents.length > 0) tmpTaxon.parentId = parents[0].id;
                     if (tmpTaxon) {
                         const valid = modifyTaxonNames(
                             tmpTaxon,
@@ -90,8 +92,8 @@ router.put('/:taxonId', [
                             content.taxa,
                             req.body,
                         );
-                        if (req.body.parentId !== undefined) {
-                            if (req.body.parentId !== tmpTaxon.parentId && content.statements) {
+                        if (req.body.parentId && req.body.parentId !== tmpTaxon.parentId) {
+                            if (content.statements) {
                                 content.statements = content.statements.filter(
                                     (element) => element.taxonId !== tmpTaxon.id,
                                 );

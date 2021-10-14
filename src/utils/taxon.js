@@ -27,10 +27,9 @@ export const setTaxonInfo = (body) => {
  *
  * @param {Array} arr Taxa array
  * @param {int} id Taxon ID
- * @param {boolean} include True if include parentId in object
  * @returns
  */
-export const findTaxonById = (arr, id, include) => {
+export const findTaxonById = (arr, id) => {
     let taxon;
     if (arr) {
         arr.forEach((element) => {
@@ -40,12 +39,37 @@ export const findTaxonById = (arr, id, include) => {
                 const tmp = findTaxonById(element.children, id);
                 if (tmp) {
                     taxon = tmp;
-                    if (include) taxon.parentId = element.id;
                 }
             }
         });
     }
     return taxon;
+};
+
+/**
+  * Find list of all higher taxa for the taxon
+  *
+  * @param {Array} taxa Taxa array
+  * @param {int} taxonId Taxon ID
+  * @returns {Array} Parent taxa
+  */
+export const findParentTaxa = (taxa, taxonId) => {
+    const find = (arr, subset, id, parent) => {
+        for (let i = 0; i < subset.length; i += 1) {
+            if (subset[i].id === id) {
+                if (parent) {
+                    arr.push(parent);
+                    find(arr, taxa, parent.id);
+                } else break;
+            }
+            if (subset[i].children) {
+                find(arr, subset[i].children, id, subset[i]);
+            }
+        }
+    };
+    const arr = [];
+    find(arr, taxa, taxonId);
+    return arr;
 };
 
 /**
